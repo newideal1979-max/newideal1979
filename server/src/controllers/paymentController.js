@@ -68,6 +68,9 @@ export async function verifyPayment(req, res, next) {
 
     const payment = await Payment.findOne({ orderId: razorpay_order_id });
     if (!payment) throw new ApiError(404, "Payment record not found.");
+    if (String(payment.user) !== String(req.user._id)) {
+      throw new ApiError(403, "Not authorized to verify this payment.");
+    }
 
     if (!isValid) {
       payment.status = "failed";
@@ -130,7 +133,7 @@ export async function handleWebhook(req, res, next) {
     const event = req.body;
     if (event.event === "payment.captured") {
       const orderId = event.payload.payment.entity.order_id;
-      const payment = await Payment.findOne({ orderId });
+      const payment = await Payment.findOne({ orderId }).populate("user", "firebaseUid");
       if (payment && payment.status !== "paid") {
         payment.status = "paid";
         payment.paymentId = event.payload.payment.entity.id;
@@ -138,9 +141,10 @@ export async function handleWebhook(req, res, next) {
         await payment.save();
 
         await Enrollment.findOneAndUpdate(
-          { user: payment.user, course: payment.course },
+          { user: payment.user._id, course: payment.course },
           {
-            user: payment.user,
+            user: payment.user._id,
+            firebaseUid: payment.user.firebaseUid,
             course: payment.course,
             payment: payment._id,
             paymentStatus: "paid",

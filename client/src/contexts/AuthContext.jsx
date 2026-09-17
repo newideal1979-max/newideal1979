@@ -46,8 +46,8 @@ export function AuthProvider({ children }) {
       await updateProfile(cred.user, { displayName: name });
       // First authenticated call creates the mirrored MongoDB profile server-side.
       const { data } = await api.get("/auth/me");
-      if (phone) await api.put("/auth/me", { name, phone });
-      setProfile(data.data);
+      const profileData = phone ? (await api.put("/auth/me", { name, phone })).data : data;
+      setProfile(profileData.data);
       return cred.user;
     },
     login(email, password) {

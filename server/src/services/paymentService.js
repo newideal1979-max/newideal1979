@@ -38,16 +38,31 @@ class RazorpayPaymentService {
    * what the frontend claims happened in the Razorpay checkout popup.
    */
   verifySignature({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return false;
+    }
+
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(razorpay_signature || ""));
+    const expectedBuffer = Buffer.from(expected, "hex");
+    const receivedBuffer = Buffer.from(razorpay_signature, "hex");
+
+    if (expectedBuffer.length !== receivedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
   }
 
   /** Verifies an incoming webhook came from Razorpay, not a spoofed request. */
   verifyWebhookSignature(rawBody, signatureHeader) {
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET || !rawBody || !signatureHeader) {
+      return false;
+    }
+
     const expected = crypto
       .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
       .update(rawBody)

@@ -31,6 +31,8 @@ export async function getEnrollmentForCourse(req, res, next) {
 export async function markLessonComplete(req, res, next) {
   try {
     const { courseId, lessonId } = req.body;
+    const lesson = await Lesson.findOne({ _id: lessonId, course: courseId, isPublished: true });
+    if (!lesson) throw new ApiError(404, "Lesson not found for this course.");
 
     const enrollment = await Enrollment.findOne({
       user: req.user._id,
@@ -39,10 +41,10 @@ export async function markLessonComplete(req, res, next) {
     });
     if (!enrollment) throw new ApiError(403, "You are not enrolled in this course.");
 
-    if (!enrollment.completedLessons.some((id) => String(id) === lessonId)) {
-      enrollment.completedLessons.push(lessonId);
+    if (!enrollment.completedLessons.some((id) => String(id) === String(lesson._id))) {
+      enrollment.completedLessons.push(lesson._id);
     }
-    enrollment.lastAccessedLesson = lessonId;
+    enrollment.lastAccessedLesson = lesson._id;
 
     const totalLessons = await Lesson.countDocuments({ course: courseId, isPublished: true });
     enrollment.courseProgress = totalLessons
